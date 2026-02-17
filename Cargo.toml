@@ -1,11 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
+    "databases/surreal",
+]
+exclude = [
     ".",
     "databases/sqlx",
     "databases/mongo",
     "databases/redispool",
-    "databases/surreal",
     "databases/redis-bb8-pool",
 ]
 

@@ -75,7 +75,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
             .query(
                 "DELETE type::table($table_name)
                 WHERE sessionexpires = NONE OR type::number(sessionexpires) < $expires
-                RETURN BEFORE;",
+                RETURN BEFORE sessionid;",
             )
             .bind(("table_name", table_name.to_string()))
             .bind(("expires", now))
@@ -122,7 +122,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
         )
         .bind(("table_name", table_name.to_string()))
         .bind(("session_id", id.to_string()))
-        .bind(("expire", expires.to_string()))
+        .bind(("expire", expires))
         .bind(("store", session.to_string()))
         .await.map_err(|err| DatabaseError::GenericSelectError(err.to_string()))?;
 
@@ -134,7 +134,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
             .connection
             .query(
                 "SELECT sessionstore FROM type::thing($table_name, $session_id)
-                WHERE sessionexpires = NONE OR sessionexpires > $expires;",
+                WHERE sessionexpires = NONE OR type::number(sessionexpires) > $expires;",
             )
             .bind(("table_name", table_name.to_string()))
             .bind(("session_id", id.to_string()))
@@ -150,7 +150,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
 
     async fn delete_one_by_id(&self, id: &str, table_name: &str) -> Result<(), DatabaseError> {
         self.connection
-            .query("DELETE type::table($table_name) WHERE sessionid < $session_id;")
+            .query("DELETE type::thing($table_name, $session_id);")
             .bind(("table_name", table_name.to_string()))
             .bind(("session_id", id.to_string()))
             .await
@@ -164,7 +164,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
             .connection
             .query(
                 "SELECT count() AS amount FROM type::thing($table_name, $session_id)
-                WHERE sessionexpires = NONE OR sessionexpires > $expires GROUP BY amount;",
+                WHERE sessionexpires = NONE OR type::number(sessionexpires) > $expires GROUP BY amount;",
             )
             .bind(("table_name", table_name.to_string()))
             .bind(("session_id", id.to_string()))
@@ -193,7 +193,7 @@ impl<C: Connection> DatabasePool for SessionSurrealPool<C> {
             .connection
             .query(
                 "SELECT sessionid FROM type::table($table_name)
-                WHERE sessionexpires = NONE OR sessionexpires > $expires;",
+                WHERE sessionexpires = NONE OR type::number(sessionexpires) > $expires;",
             )
             .bind(("table_name", table_name.to_string()))
             .bind(("expires", Utc::now().timestamp()))
